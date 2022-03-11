@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 bt = "0.2.9"
+numpy = "1.22.0"
 
 [dev-packages]
 
