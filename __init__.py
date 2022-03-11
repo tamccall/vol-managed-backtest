@@ -42,15 +42,25 @@ def vol_managed_potfolio_vix(data, c, rf, expected_ret):
 
 def vol_managed_potfolio(data, c, rf, expected_ret):
     spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
-    ex_std = spy_ret.rolling(21).std() * math.sqrt(253)
-    ex_var = np.power(ex_std, 2)
-    f = c / ex_var * (expected_ret - rf)
+    ex_std = spy_ret.rolling(21).std() * math.sqrt(253) # get the rolling standard deviation
+    ex_var = np.power(ex_std, 2) # square it to come up with the variance
+    f = c / ex_var * (expected_ret - rf) # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
     cond_ret = f + rf
+
+    # in your paper you mention the optimal weight being proportional to the risk return trade off
+    # this attempts to capture that.
     risk_ret_trade = cond_ret / ex_var
+
     risk_ret_trade = np.minimum(risk_ret_trade.dropna(), 2) # this strategy seems to go bankrupt if we let it get too crazy with the leverage
+
+    # we put the rest of the allocation into some risk-free investment
     risk_free_weight = 1 - risk_ret_trade
+
+    # but we don't short the bond etf
     risk_free_weight = np.maximum(risk_free_weight, 0)
-    weights = {"spy": risk_ret_trade, "vgsh": risk_free_weight}
+
+
+    weights = {"spy": risk_ret_trade, "vgsh": risk_free_weight} # a map of weights that we allocate to each ticker overtime
     return bt.Strategy(
         "vol_managed",
         [
