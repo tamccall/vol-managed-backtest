@@ -1,3 +1,5 @@
+import math
+
 import bt
 import numpy as np
 
@@ -7,7 +9,8 @@ class TSDWeights(bt.algos.Algo):
         date = target.now
         tmp_weight = {}
         for k, v in self.weights.items():
-            tmp_weight[k] = v.at[date]
+            weight = v.at[date]
+            tmp_weight[k] = weight if not math.isnan(weight) else 0
         target.temp["weights"] = tmp_weight
         return True
 
@@ -17,7 +20,7 @@ class TSDWeights(bt.algos.Algo):
 
 
 def vol_managed_potfolio(data, c, rf, expected_ret):
-    ex_stdev = data["vix"] / 100
+    ex_stdev = data.vix / 100
     ex_var = np.power(ex_stdev, 2)
     f = c / ex_var * (expected_ret - rf)
     cond_ret = f + rf
@@ -60,12 +63,24 @@ def fictional_vix():
         ],
     )
 
-data = bt.get("^vix, spy, vgsh", start="2000-01-01")
+def buy_and_hold():
+
+    return bt.Strategy(
+        "buy_and_hold",
+        [
+            bt.algos.SelectThese(["spy"]),
+            bt.algos.RunMonthly(),
+            bt.algos.WeighSpecified(spy=1)
+        ],
+    )
+
+data = bt.get("^vix, spy, vgsh, sh", start="2000-01-01")
 
 tests = [
     bt.Backtest(vol_managed_potfolio(data, 0.00426746700832415, 0.0185, 0.1), data),
     bt.Backtest(benchmark(), data),
-    bt.Backtest(fictional_vix(), data)
+    bt.Backtest(fictional_vix(), data),
+    bt.Backtest(buy_and_hold(), data)
 ]
 
 res = bt.run(*tests)
