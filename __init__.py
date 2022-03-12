@@ -42,9 +42,10 @@ def vol_managed_potfolio_vix(data, c, rf, expected_ret):
 
 def vol_managed_potfolio(data, c, rf, expected_ret):
     spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
-    ex_std = spy_ret.rolling(21).std() * math.sqrt(253) # get the rolling standard deviation
+    excess_ret = np.power(1 + spy_ret, 365.25) - rf
+    ex_std = spy_ret.rolling(21).std() * math.sqrt(253) # get the rolling standard deviations
     ex_var = np.power(ex_std, 2) # square it to come up with the variance
-    f = c / ex_var * (expected_ret - rf) # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
+    f = c / ex_var * excess_ret.shift(1) # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
     cond_ret = f + rf
 
     # in your paper you mention the optimal weight being proportional to the risk return trade off
@@ -65,7 +66,7 @@ def vol_managed_potfolio(data, c, rf, expected_ret):
         "vol_managed",
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
-            bt.algos.RunAfterDays(30),
+            bt.algos.RunAfterDays(42),
             bt.algos.RunMonthly(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
