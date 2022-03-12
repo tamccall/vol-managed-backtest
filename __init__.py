@@ -110,16 +110,20 @@ def buy_and_hold():
 
 data = bt.get("^vix, spy, vgsh", start="2012-01-01")
 
-tests = [
-    bt.Backtest(vol_managed_potfolio_vix(data, 0.00426746700832415, 0.0185, 0.1), data),
-    bt.Backtest(vol_managed_potfolio(data, 0.00426746700832415, 0.0185, 0.1), data),
-    bt.Backtest(eighty_twenty(), data),
-    bt.Backtest(buy_and_hold(), data),
-    bt.Backtest(fictional_vix(), data)
-]
+def run_backtests():
+    tests = [
+        # bt.Backtest(vol_managed_potfolio_vix(data, 0.00426746700832415, 0.0185, 0.1), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.00426746700832415, 0.0185, 0.1), data),
+        bt.Backtest(eighty_twenty(), data),
+        bt.Backtest(buy_and_hold(), data),
+        bt.Backtest(fictional_vix(), data)
+    ]
 
-res = bt.run(*tests)
-res.display()
+    res = bt.run(*tests)
+    res.display()
 
-plot = res.plot()
-plot.figure.show()
+    plot = res.plot()
+    plot.figure.show()
+
+
+run_backtests()
