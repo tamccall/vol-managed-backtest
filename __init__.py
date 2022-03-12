@@ -33,14 +33,13 @@ def vol_managed_potfolio_vix(data, c, max_leverage=2):
     f = c / ex_var * excess_ret.shift(1)
     cond_ret = f + two_year
     risk_ret_trade = np.minimum(cond_ret / ex_var, max_leverage)
-    risk_free_weight = 1 - risk_ret_trade
-    risk_free_weight = np.maximum(risk_free_weight, 0)
+    risk_free_weight = np.maximum(1 - risk_ret_trade, 0)
     weights = {"spy": risk_ret_trade, "vgsh": risk_free_weight}
     return bt.Strategy(
         "vol_managed_vix",
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
-            bt.algos.RunMonthly(),
+            bt.algos.RunDaily(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
@@ -59,10 +58,8 @@ def vol_managed_potfolio(data, c, max_leverage=2):
     risk_ret_trade = np.minimum(cond_ret / realized_var, max_leverage) # this strategy seems to go bankrupt if we let it get too crazy with the leverage
 
     # we put the rest of the allocation into some risk-free investment
-    risk_free_weight = 1 - risk_ret_trade
-
     # but we don't short the bond etf
-    risk_free_weight = np.maximum(risk_free_weight, 0)
+    risk_free_weight = np.maximum(1 - risk_ret_trade, 0)
 
 
     weights = {"spy": risk_ret_trade, "vgsh": risk_free_weight} # a map of weights that we allocate to each ticker overtime
@@ -71,7 +68,7 @@ def vol_managed_potfolio(data, c, max_leverage=2):
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
             bt.algos.RunAfterDays(42),
-            bt.algos.RunMonthly(),
+            bt.algos.RunDaily(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
@@ -113,12 +110,12 @@ def buy_and_hold():
         ],
     )
 
-data = bt.get("^vix, spy, vgsh", start="2000-01-01")
+data = bt.get("^vix, spy, vgsh", start="2017-01-01", end="2022-03-11")
 
 def run_backtests():
     tests = [
-        bt.Backtest(vol_managed_potfolio_vix(data, 0.00426746700832415), data),
-        bt.Backtest(vol_managed_potfolio(data, 0.00426746700832415), data),
+        bt.Backtest(vol_managed_potfolio_vix(data, 0.00426746700832415, max_leverage=1.5), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.00426746700832415, max_leverage=1.5), data),
         bt.Backtest(eighty_twenty(), data),
         bt.Backtest(buy_and_hold(), data),
         bt.Backtest(fictional_vix(), data)
