@@ -3,6 +3,7 @@ import math
 import bt
 import numpy as np
 import pandas as pd
+import scipy.optimize
 
 
 class TSDWeights(bt.algos.Algo):
@@ -26,12 +27,11 @@ treasuries = treasuries.set_index(pd.to_datetime(treasuries.index)).sort_index()
 two_year = treasuries["2 Yr"]
 
 
-def vol_managed_potfolio_vix(data, c, max_leverage=2):
-    spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
-    excess_ret = np.power(1 + spy_ret, 365.25) - 1 - two_year
+def vol_managed_potfolio_vix(data, c, expected_ret, max_leverage=2):
+    excess_ret = expected_ret - two_year
     ex_stdev = data.vix / 100
     ex_var = np.power(ex_stdev, 2)
-    f = c / ex_var * excess_ret.shift(1)
+    f = c / ex_var * excess_ret
     cond_ret = f + two_year
     risk_ret_trade = np.minimum(cond_ret / ex_var, max_leverage)
     risk_ret_trade = np.maximum(risk_ret_trade, 0)
@@ -41,22 +41,22 @@ def vol_managed_potfolio_vix(data, c, max_leverage=2):
         "vol_managed_vix",
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
-            bt.algos.RunDaily(),
+            bt.algos.RunMonthly(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
     )
 
 
-def vol_managed_potfolio(data, c, max_leverage=2):
+def vol_managed_potfolio(data, c, expected_ret, max_leverage=2):
     spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
-    excess_ret = (np.power(1 + spy_ret, 365.25) - 1) - two_year
-    realized_std = spy_ret.rolling(21).std() * math.sqrt(
+    excess_ret = expected_ret - two_year
+    realized_std = spy_ret.rolling(21).std().shift(1) * math.sqrt(
         253
     )  # get the rolling standard deviations
     realized_var = np.power(realized_std, 2)  # square it to come up with the variance
     f = (
-        c / realized_var * excess_ret.shift(1)
+        c / realized_var * excess_ret
     )  # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
     cond_ret = f + two_year
 
@@ -79,7 +79,7 @@ def vol_managed_potfolio(data, c, max_leverage=2):
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
             bt.algos.RunAfterDays(42),
-            bt.algos.RunDaily(),
+            bt.algos.RunMonthly(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
@@ -125,13 +125,14 @@ def buy_and_hold():
     )
 
 
-data = bt.get("^vix, spy, vgsh", start="2017-01-01", end="2022-03-11")
+data = bt.get("^vix, spy, vgsh", start="2012-01-01", end="2022-03-11")
 
 
 def run_backtests():
+    # 0.00852003
     tests = [
-        bt.Backtest(vol_managed_potfolio_vix(data, 0.00426746700832415, max_leverage=1.5), data),
-        bt.Backtest(vol_managed_potfolio(data, 0.00426746700832415, max_leverage=1.5), data),
+        bt.Backtest(vol_managed_potfolio_vix(data, 0.01388274, 0.1, max_leverage=2.5), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.01388274, 0.1, max_leverage=2.5), data),
         bt.Backtest(eighty_twenty(), data),
         bt.Backtest(buy_and_hold(), data),
         bt.Backtest(fictional_vix(), data),
@@ -139,9 +140,39 @@ def run_backtests():
 
     res = bt.run(*tests)
     res.display()
-
     plot = res.plot()
     plot.figure.show()
 
+
+def backtest_for_c(c):
+    res = bt.run(bt.Backtest(vol_managed_potfolio(data, c, 0.1, max_leverage=10), data),)
+    return -1 * res['vol_managed'].daily_sharpe
+
+
+def optimize_c():
+    res = scipy.optimize.minimize(
+        backtest_for_c,
+        x0=0.00426746700832415,
+        bounds=[(0, 1)],
+    )
+
+    print(res)
+
+def backtest_for_max_leverage(leverage):
+    res = bt.run(
+        bt.Backtest(vol_managed_potfolio(data, 0.01388274, 0.1, max_leverage=leverage), data),
+        bt.Backtest(fictional_vix(), data),
+    )
+
+    return -1 * res['vol_managed'].daily_sharpe
+
+def optimize_leverage():
+    res = scipy.optimize.minimize(
+        backtest_for_max_leverage,
+        x0=2.5,
+        bounds=[(0, 10)],
+    )
+
+    print(res)
 
 run_backtests()
