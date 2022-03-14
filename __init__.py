@@ -79,7 +79,7 @@ def vol_managed_potfolio(data, c, expected_ret, max_leverage=2):
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
             bt.algos.RunAfterDays(42),
-            bt.algos.RunMonthly(),
+            bt.algos.RunWeekly(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
@@ -129,10 +129,8 @@ data = bt.get("^vix, spy, vgsh", start="2012-01-01", end="2022-03-11")
 
 
 def run_backtests():
-    # 0.00852003
     tests = [
-        bt.Backtest(vol_managed_potfolio_vix(data, 0.01388274, 0.1, max_leverage=2.5), data),
-        bt.Backtest(vol_managed_potfolio(data, 0.01388274, 0.1, max_leverage=2.5), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.02411119, 0.1, max_leverage=2.5), data),
         bt.Backtest(eighty_twenty(), data),
         bt.Backtest(buy_and_hold(), data),
         bt.Backtest(fictional_vix(), data),
@@ -145,8 +143,8 @@ def run_backtests():
 
 
 def backtest_for_c(c):
-    res = bt.run(bt.Backtest(vol_managed_potfolio(data, c, 0.1, max_leverage=10), data),)
-    return -1 * res['vol_managed'].daily_sharpe
+    res = bt.run(bt.Backtest(vol_managed_potfolio(data, c, 0.1, max_leverage=1), data),)
+    return -1 * res['vol_managed'].yearly_sharpe
 
 
 def optimize_c():
@@ -154,17 +152,17 @@ def optimize_c():
         backtest_for_c,
         x0=0.00426746700832415,
         bounds=[(0, 1)],
+        method='Nelder-Mead'
     )
 
     print(res)
 
 def backtest_for_max_leverage(leverage):
     res = bt.run(
-        bt.Backtest(vol_managed_potfolio(data, 0.01388274, 0.1, max_leverage=leverage), data),
-        bt.Backtest(fictional_vix(), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.02411119, 0.1, max_leverage=leverage), data),
     )
 
-    return -1 * res['vol_managed'].daily_sharpe
+    return -1 * res['vol_managed'].cagr
 
 def optimize_leverage():
     res = scipy.optimize.minimize(
