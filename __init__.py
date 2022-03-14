@@ -125,12 +125,12 @@ def buy_and_hold():
     )
 
 
-data = bt.get("^vix, spy, vgsh", start="2012-01-01", end="2022-03-11")
+data = bt.get("^vix, spy, vgsh", start="2000-01-01", end="2022-03-11")
 
 
 def run_backtests():
     tests = [
-        bt.Backtest(vol_managed_potfolio(data, 0.02411119, 0.1, max_leverage=2.5), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.03179263, 0.1, max_leverage=1.62231445), data),
         bt.Backtest(eighty_twenty(), data),
         bt.Backtest(buy_and_hold(), data),
         bt.Backtest(fictional_vix(), data),
@@ -159,16 +159,19 @@ def optimize_c():
 
 def backtest_for_max_leverage(leverage):
     res = bt.run(
-        bt.Backtest(vol_managed_potfolio(data, 0.02411119, 0.1, max_leverage=leverage), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.03179263, 0.1, max_leverage=leverage), data),
+        bt.Backtest(fictional_vix(), data),
     )
 
-    return -1 * res['vol_managed'].cagr
+    corel = np.corrcoef(res['vol_managed'].prices, res['vix_buys'].prices)
+    return abs(res['vol_managed'].cagr - res['vix_buys'].cagr) / corel[0][1]
 
 def optimize_leverage():
     res = scipy.optimize.minimize(
         backtest_for_max_leverage,
-        x0=2.5,
-        bounds=[(0, 10)],
+        x0=1.5,
+        bounds=[(1, 10)],
+        method='Nelder-Mead'
     )
 
     print(res)
