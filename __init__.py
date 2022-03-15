@@ -162,11 +162,10 @@ def buy_and_hold():
 
 data = bt.get("^vix, spy, vgsh, sso", start="2000-01-01", end="2022-03-11")
 
-
 def run_backtests():
     tests = [
-        bt.Backtest(vol_managed_potfolio(data, 0.050466645, 0.1, max_leverage=2), data),
-        bt.Backtest(vol_managed_potfolio_etf(data, 0.050466645, 0.1, max_leverage=2), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.04814321, 0.1, max_leverage=1.99367762), data),
+        bt.Backtest(vol_managed_potfolio_etf(data, 0.04814321, 0.1, max_leverage=2), data),
         bt.Backtest(eighty_twenty(), data),
         bt.Backtest(buy_and_hold(), data),
     ]
@@ -182,8 +181,13 @@ def run_backtests():
 
 def backtest_for_c_l(arr):
     c, l = arr
-    res = bt.run(bt.Backtest(vol_managed_potfolio(data, c, 0.1, max_leverage=l), data))
-    return -1 * res['vol_managed'].daily_sharpe
+    res = bt.run(
+        bt.Backtest(vol_managed_potfolio(data, c, 0.1, max_leverage=l), data),
+        bt.Backtest(buy_and_hold(), data)
+    )
+
+    reg = scipy.stats.linregress(res['buy_and_hold'].log_returns.dropna(), res['vol_managed'].log_returns.dropna())
+    return -1 * reg.intercept
 
 
 def optimize_c():
