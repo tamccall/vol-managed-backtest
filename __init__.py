@@ -101,18 +101,18 @@ def vol_managed_potfolio_etf(data, c, expected_ret, max_leverage=2):
     # we put the rest of the allocation into some risk-free investment
     # but we don't short the bond etf
     risk_free_weight = np.maximum(1 - risk_ret_trade, 0)
-    spuu_weight = np.maximum(risk_ret_trade - 1, 0)
-    spy_weight = 1 - spuu_weight
+    sso_weight = np.maximum(risk_ret_trade - 1, 0)
+    spy_weight = 1 - sso_weight - risk_free_weight
 
     weights = {
         "spy": spy_weight,
-        "spuu": spuu_weight,
+        "sso": sso_weight,
         "vgsh": risk_free_weight,
     }  # a map of weights that we allocate to each ticker overtime
     return bt.Strategy(
         "vol_managed_etf",
         [
-            bt.algos.SelectThese(["spy", "vgsh", "spuu"]),
+            bt.algos.SelectThese(["spy", "vgsh", "sso"]),
             bt.algos.RunAfterDays(42),
             bt.algos.RunWeekly(),
             TSDWeights(**weights),
@@ -160,7 +160,7 @@ def buy_and_hold():
     )
 
 
-data = bt.get("^vix, spy, vgsh", start="2012-01-01", end="2022-03-11")
+data = bt.get("^vix, spy, vgsh, sso", start="2000-01-01", end="2022-03-11")
 
 
 def run_backtests():
