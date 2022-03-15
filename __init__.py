@@ -165,20 +165,18 @@ data = bt.get("^vix, spy, vgsh, sso", start="2000-01-01", end="2022-03-11")
 
 def run_backtests():
     tests = [
-        bt.Backtest(vol_managed_potfolio(data, 0.02341058, 0.1, max_leverage=2), data),
-        # bt.Backtest(vol_managed_potfolio_etf(data, 0.03179263, 0.1, max_leverage=1.62231445), data),
+        bt.Backtest(vol_managed_potfolio(data, 0.050466645, 0.1, max_leverage=2), data),
+        bt.Backtest(vol_managed_potfolio_etf(data, 0.050466645, 0.1, max_leverage=2), data),
         bt.Backtest(eighty_twenty(), data),
         bt.Backtest(buy_and_hold(), data),
-        bt.Backtest(fictional_vix(), data),
     ]
 
     res = bt.run(*tests)
     res.display()
     plot = res.plot()
     plot.figure.show()
-
-    # reg = scipy.stats.linregress(res['vol_managed'].prices, res['vol_managed_etf'].prices)
-    # print(reg)
+    reg = scipy.stats.linregress(res['vol_managed'].log_returns.dropna(), res['vol_managed_etf'].log_returns.dropna())
+    print(reg)
 
 
 
@@ -192,7 +190,7 @@ def optimize_c():
     res = scipy.optimize.minimize(
         backtest_for_c_l,
         x0=[0.03179263, 1.62231445],
-        bounds=[(0.0, 2.0), (1.0, 3.0)],
+        bounds=[(0.0, 2.0), (0.8, 2.0)],
         method='Nelder-Mead'
     )
 
