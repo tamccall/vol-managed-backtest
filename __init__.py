@@ -1,4 +1,5 @@
 import math
+import random
 
 import bt
 import numpy as np
@@ -25,17 +26,13 @@ class TSDWeights(bt.algos.Algo):
 treasuries = pd.read_csv("daily-treasury-rates.csv", index_col=0)
 treasuries = treasuries.set_index(pd.to_datetime(treasuries.index)).sort_index() / 100
 two_year = treasuries["2 Yr"]
+two_year_daily = np.power(1 + two_year, 1 / 365) - 1
 
 
 def vol_managed_potfolio_vix(data, c, expected_ret, max_leverage=2):
-    excess_ret = expected_ret - two_year
-    ex_stdev = data.vix / 100
-    ex_var = np.power(ex_stdev, 2)
-    f = c / ex_var * excess_ret
-    cond_ret = f + two_year
-    risk_ret_trade = np.minimum(cond_ret / ex_var, max_leverage)
-    risk_ret_trade = np.maximum(risk_ret_trade, 0)
+    risk_ret_trade = risk_return_trade_from_vix(data, c, expected_ret, max_leverage)
     risk_free_weight = np.maximum(1 - risk_ret_trade, 0)
+
     weights = {"spy": risk_ret_trade, "vgsh": risk_free_weight}
     return bt.Strategy(
         "vol_managed_vix",
@@ -48,13 +45,30 @@ def vol_managed_potfolio_vix(data, c, expected_ret, max_leverage=2):
     )
 
 
+def risk_return_trade_from_vix(data, c, expected_ret, max_leverage):
+    # convert the vix into a variation
+    excess_ret = expected_ret - two_year
+    ex_stdev = data.vix / 100
+    ex_var = np.power(ex_stdev, 2)
+
+    # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
+    f = c / ex_var * excess_ret
+    cond_ret = f + two_year
+
+    # put some bounds on it
+    risk_ret_trade = np.minimum(cond_ret / ex_var, max_leverage)
+    risk_ret_trade = np.maximum(risk_ret_trade, 0)
+    return risk_ret_trade
+
+
 def vol_managed_potfolio(data, c, expected_ret, max_leverage=2):
     # in your paper you mention the optimal weight being proportional to the risk return trade off
     # this attempts to capture that.
     risk_ret_trade = np.minimum(
         risk_return_tradeoff(c, data, expected_ret), max_leverage
     )  # this strategy seems to go bankrupt if we let it get too crazy with the leverage
-    risk_ret_trade =np.maximum(risk_ret_trade, 0) # dont short it
+    risk_ret_trade = np.maximum(risk_ret_trade, 0)  # dont short it
+
     # we put the rest of the allocation into some risk-free investment
     # but we don't short the bond etf
     risk_free_weight = np.maximum(1 - risk_ret_trade, 0)
@@ -68,7 +82,7 @@ def vol_managed_potfolio(data, c, expected_ret, max_leverage=2):
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
             bt.algos.RunAfterDays(42),
-            bt.algos.RunWeekly(),
+            bt.algos.RunMonthly(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
@@ -77,14 +91,16 @@ def vol_managed_potfolio(data, c, expected_ret, max_leverage=2):
 
 def risk_return_tradeoff(c, data, expected_ret):
     spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
-    excess_ret = expected_ret - two_year
-    realized_std = spy_ret.rolling(21).std().shift(1) * math.sqrt(
-        253
-    )  # get the rolling standard deviations
-    realized_var = np.power(realized_std, 2)  # square it to come up with the variance
-    f = (
-            c / realized_var * excess_ret
-    )  # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
+
+    # get the rolling standard deviations
+    realized_std = spy_ret.rolling(21).std() * math.sqrt(253)
+
+    # square it to come up with the variance
+    realized_var = np.power(realized_std, 2).shift(1)
+
+    # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
+    f = c / realized_var * (expected_ret - two_year)
+
     cond_ret = f + two_year
     risk_ret_trade = cond_ret / realized_var
     return risk_ret_trade
@@ -93,10 +109,7 @@ def risk_return_tradeoff(c, data, expected_ret):
 def vol_managed_potfolio_etf(data, c, expected_ret, max_leverage=2):
     # in your paper you mention the optimal weight being proportional to the risk return trade off
     # this attempts to capture that.
-    risk_ret_trade = np.minimum(
-       risk_return_tradeoff(c, data, expected_ret), max_leverage
-    )  # this strategy seems to go bankrupt if we let it get too crazy with the leverage
-    risk_ret_trade =np.maximum(risk_ret_trade, 0) # dont short it
+    risk_ret_trade = risk_return_trade_from_vix(data, c, expected_ret, max_leverage)
 
     # we put the rest of the allocation into some risk-free investment
     # but we don't short the bond etf
@@ -162,10 +175,20 @@ def buy_and_hold():
 
 data = bt.get("^vix, spy, vgsh, sso", start="2000-01-01", end="2022-03-11")
 
+
 def run_backtests():
     tests = [
-        bt.Backtest(vol_managed_potfolio(data, 0.04814321, 0.1, max_leverage=1.99367762), data),
-        bt.Backtest(vol_managed_potfolio_etf(data, 0.04814321, 0.1, max_leverage=2), data),
+        bt.Backtest(
+            vol_managed_potfolio(data, 0.74126262, 0.1, max_leverage=1.718734281), data
+        ),
+        bt.Backtest(
+            vol_managed_potfolio_vix(data, 0.33234769, 0.1, max_leverage=1.718734281),
+            data,
+        ),
+        # bt.Backtest(
+        #     vol_managed_potfolio_etf(data, 0.74126262, 0.1, max_leverage=1.718734281),
+        #     data,
+        # ),
         bt.Backtest(eighty_twenty(), data),
         bt.Backtest(buy_and_hold(), data),
     ]
@@ -174,28 +197,29 @@ def run_backtests():
     res.display()
     plot = res.plot()
     plot.figure.show()
-    reg = scipy.stats.linregress(res['vol_managed'].log_returns.dropna(), res['vol_managed_etf'].log_returns.dropna())
-    print(reg)
-
+    # reg = scipy.stats.linregress(res['vol_managed'].log_returns.dropna(), res['vol_managed_etf'].log_returns.dropna())
+    # print(reg)
 
 
 def backtest_for_c_l(arr):
+    s = data.head(int(len(data) / 2))
     c, l = arr
     res = bt.run(
-        bt.Backtest(vol_managed_potfolio(data, c, 0.1, max_leverage=l), data),
-        bt.Backtest(buy_and_hold(), data)
+        bt.Backtest(vol_managed_potfolio_vix(s, c, 0.1, max_leverage=l), s),
+        bt.Backtest(buy_and_hold(), s)
     )
 
-    reg = scipy.stats.linregress(res['buy_and_hold'].log_returns.dropna(), res['vol_managed'].log_returns.dropna())
-    return -1 * reg.intercept
+    # reg = scipy.stats.linregress(res['buy_and_hold'].log_returns.dropna(), res['vol_managed_vix'].log_returns.dropna())
+    # return -1 * reg.intercept
+    return -1 * res["vol_managed_vix"].daily_sharpe
 
 
 def optimize_c():
     res = scipy.optimize.minimize(
         backtest_for_c_l,
-        x0=[0.03179263, 1.62231445],
-        bounds=[(0.0, 2.0), (0.8, 2.0)],
-        method='Nelder-Mead'
+        x0=[random.uniform(0.2, 0.6), random.uniform(1.0, 2.0)],
+        bounds=[(0.00001, 100.0), (1, 2.0)],
+        method="Nelder-Mead",
     )
 
     print(res)
