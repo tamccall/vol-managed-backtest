@@ -46,7 +46,7 @@ def vol_managed_potfolio_vix(data, c, expected_ret, max_leverage=2):
 
 
 
-def vol_managed_potfolio(data, c, expected_ret, max_leverage=2):
+def vol_managed_potfolio(data, c, expected_ret, max_leverage=2, strategy_name="vol_managed"):
     # in your paper you mention the optimal weight being proportional to the risk return trade off
     # this attempts to capture that.
     risk_ret_trade = risk_return_tradeoff_from_spy(data, c, expected_ret, max_leverage)
@@ -60,7 +60,7 @@ def vol_managed_potfolio(data, c, expected_ret, max_leverage=2):
         "vgsh": risk_free_weight,
     }  # a map of weights that we allocate to each ticker overtime
     return bt.Strategy(
-        "vol_managed",
+        strategy_name,
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
             bt.algos.RunAfterDays(42),
@@ -106,7 +106,7 @@ def risk_return_tradeoff_from_spy(data, c,expected_ret, max_leverage=2):
 
 
 def vol_managed_potfolio_etf(data, c, expected_ret, max_leverage=2):
-    risk_ret_trade = risk_return_trade_from_vix(data, c, expected_ret, max_leverage)
+    risk_ret_trade = risk_return_tradeoff_from_spy(data, c, expected_ret, max_leverage)
 
     # we put the rest of the allocation into some risk-free investment
     # but we don't short the bond etf
@@ -181,6 +181,12 @@ def get_c():
     smkt = mkt_rf / var.shift(1)
     return math.sqrt(mkt_rf.var() / smkt.var()) # gets us a c that will ensure the same variance
 
+def med_vix_c():
+    med_vix = data.vix.mean() / 100
+    vix_var = math.pow(med_vix, 2)
+
+    # corresponds to an 80:20 allocation on average
+    return 0.8 * vix_var
 
 def run_backtests():
     tests = [
