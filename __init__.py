@@ -12,8 +12,11 @@ class TSDWeights(bt.algos.Algo):
         date = target.now
         tmp_weight = {}
         for k, v in self.weights.items():
-            weight = v.at[date]
-            tmp_weight[k] = weight if not math.isnan(weight) else 0
+            try:
+                weight = v.at[date]
+                tmp_weight[k] = weight if not math.isnan(weight) else 0
+            except KeyError:
+                tmp_weight[k] = 0
 
         target.temp["weights"] = tmp_weight
         return True
@@ -106,7 +109,7 @@ def risk_return_tradeoff_from_spy(data, c,expected_ret, max_leverage=2):
 
 
 def vol_managed_potfolio_etf(data, c, expected_ret, max_leverage=2):
-    risk_ret_trade = risk_return_tradeoff_from_spy(data, c, expected_ret, max_leverage)
+    risk_ret_trade = risk_return_trade_from_vix(data, c, expected_ret, max_leverage)
 
     # we put the rest of the allocation into some risk-free investment
     # but we don't short the bond etf
@@ -191,14 +194,14 @@ def med_vix_c():
 def run_backtests():
     tests = [
         bt.Backtest(
-            vol_managed_potfolio(data, 0.04198355, 0.105, max_leverage=2), data
+            vol_managed_potfolio(data, 0.03101121352, 0.105, max_leverage=2), data
         ),
         bt.Backtest(
-            vol_managed_potfolio_vix(data, 0.04198355, 0.105, max_leverage=2),
+            vol_managed_potfolio_vix(data, 0.03101121352, 0.105, max_leverage=2),
             data,
         ),
         bt.Backtest(
-            vol_managed_potfolio_etf(data, 0.04198355, 0.105, max_leverage=2),
+            vol_managed_potfolio_etf(data, 0.03101121352, 0.105, max_leverage=2),
             data,
         ),
         bt.Backtest(eighty_twenty(), data),
@@ -207,21 +210,28 @@ def run_backtests():
 
     res = bt.run(*tests)
     res.display()
+    plot = res.backtests['vol_managed_vix'].weights.plot(figsize=[15, 5])
+    plot.figure.show()
+
+    display_returns(res)
+    print_regressions(res)
+
+
+def display_returns(res):
     plot = res.plot()
     plot.figure.show()
 
+
+def print_regressions(res):
     mkt_excess = res['buy_and_hold'].log_returns - two_year_daily
     vol_managed_excess = res['vol_managed_vix'].log_returns - two_year_daily
-
     reg = scipy.stats.linregress(mkt_excess.dropna(), vol_managed_excess.dropna())
     print("\nBuy and hold regression:")
     print(reg)
-
     print("\nVol managed ETF regression:")
     etf_excess = res['vol_managed_etf'].log_returns - two_year_daily
     reg = scipy.stats.linregress(vol_managed_excess.dropna(), etf_excess.dropna())
     print(reg)
-
     print("\nVol managed ETF regression (mkt):")
     reg = scipy.stats.linregress(mkt_excess.dropna(), etf_excess.dropna())
     print(reg)
