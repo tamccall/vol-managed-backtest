@@ -252,12 +252,11 @@ def print_regressions(res):
 
 
 def backtest_for_c_l(arr):
-    s = data.head(int(len(data) / 2))
     c, l = arr
 
     res = bt.run(
-        bt.Backtest(vol_managed_potfolio(s, c, 0.1, max_leverage=2), s),
-        bt.Backtest(buy_and_hold(), s),
+        bt.Backtest(vol_managed_potfolio(data, c, 0.105, max_leverage=l), data),
+        bt.Backtest(buy_and_hold(), data),
     )
 
     excess_bh = (res["buy_and_hold"].log_returns - two_year_daily).dropna()
@@ -270,7 +269,7 @@ def optimize_c():
     res = scipy.optimize.minimize(
         backtest_for_c_l,
         x0=[med_vix_c(), random.uniform(1.0, 2.0)],
-        bounds=[(0.00001, 100.0), (1, 2.0)],
+        bounds=[(0.00001, 100.0), (1, 3.0)],
         method="Nelder-Mead",
     )
 
