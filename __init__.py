@@ -81,7 +81,8 @@ def risk_return_trade(c, ex_var, expected_ret, max_leverage):
     cond_ret = f + two_year
 
     # put some bounds on it to constrain the leverage
-    risk_ret_trade = np.minimum(cond_ret / ex_var, max_leverage)
+    lev = cond_ret / expected_ret
+    risk_ret_trade = np.minimum(lev, max_leverage)
     # but don't short it
     risk_ret_trade = np.maximum(risk_ret_trade, 0)
     return risk_ret_trade
@@ -182,23 +183,19 @@ def get_c():
     return math.sqrt(mkt_rf.var() / smkt.var()) # gets us a c that will ensure the same variance
 
 def med_vix_c():
-    med_vix = data.vix.mean() / 100
+    med_vix = data.vix.median() / 100
     vix_var = math.pow(med_vix, 2)
 
     # corresponds to an 80:20 allocation on average
-    return 0.8 * vix_var
+    return vix_var
 
 def run_backtests():
     tests = [
         bt.Backtest(
-            vol_managed_potfolio(data, 0.03101121352, 0.105, max_leverage=2), data
+            vol_managed_potfolio(data, 0.06202242704, 0.105, max_leverage=2), data
         ),
         bt.Backtest(
-            vol_managed_potfolio_vix(data, 0.03202242704, 0.105, max_leverage=2),
-            data,
-        ),
-        bt.Backtest(
-            vol_managed_potfolio_etf(data, 0.03101121352, 0.105, max_leverage=2),
+            vol_managed_potfolio_etf(data, 0.06202242704, 0.105, max_leverage=2),
             data,
         ),
         bt.Backtest(eighty_twenty(), data),
@@ -207,7 +204,7 @@ def run_backtests():
 
     res = bt.run(*tests)
     res.display()
-    plot = res.backtests['vol_managed_vix'].weights.plot(figsize=[15, 5])
+    plot = res.backtests['vol_managed'].weights.drop("vol_managed", axis=1).plot(figsize=[15, 5])
     plot.figure.show()
 
     display_returns(res)
@@ -239,7 +236,7 @@ def backtest_for_c_l(arr):
     c, l = arr
 
     res = bt.run(
-        bt.Backtest(vol_managed_potfolio(s, c, 0.1, max_leverage=l), s),
+        bt.Backtest(vol_managed_potfolio(s, c, 0.1, max_leverage=2), s),
         bt.Backtest(buy_and_hold(), s)
     )
 
@@ -252,7 +249,7 @@ def backtest_for_c_l(arr):
 def optimize_c():
     res = scipy.optimize.minimize(
         backtest_for_c_l,
-        x0=[get_c(), random.uniform(1.0, 2.0)],
+        x0=[med_vix_c(), random.uniform(1.0, 2.0)],
         bounds=[(0.00001, 100.0), (1, 2.0)],
         method="Nelder-Mead",
     )
