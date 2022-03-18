@@ -114,18 +114,18 @@ def vol_managed_potfolio_etf(data, c, expected_ret, max_leverage=2):
     # we put the rest of the allocation into some risk-free investment
     # but we don't short the bond etf
     risk_free_weight = np.maximum(1 - risk_ret_trade, 0)
-    sso_weight = np.maximum(risk_ret_trade - 1, 0)
+    sso_weight = np.maximum((risk_ret_trade - 1) / 2, 0)
     spy_weight = 1 - sso_weight - risk_free_weight
 
     weights = {
         "spy": spy_weight,
-        "sso": sso_weight,
+        "upro": sso_weight,
         "vgsh": risk_free_weight,
     }  # a map of weights that we allocate to each ticker overtime
     return bt.Strategy(
         "vol_managed_etf",
         [
-            bt.algos.SelectThese(["spy", "vgsh", "sso"]),
+            bt.algos.SelectThese(["spy", "vgsh", "upro"]),
             bt.algos.RunAfterDays(42),
             bt.algos.RunMonthly(),
             TSDWeights(**weights),
@@ -173,7 +173,7 @@ def buy_and_hold():
     )
 
 
-data = bt.get("^vix, spy, vgsh, sso", start="2000-04-17", end="2022-03-11")
+data = bt.get("^vix, spy, vgsh, upro", start="2000-04-17", end="2022-03-11")
 
 # code from https://twitter.com/alan_econ/status/1502372674009538564?s=20&t=McRHU8l5Cpbtg-MHa8BoZQ
 def get_c():
@@ -198,10 +198,10 @@ def med_vix_c():
 def run_backtests():
     tests = [
         bt.Backtest(
-            vol_managed_potfolio(data, 0.06202242704, 0.105, max_leverage=2), data
+            vol_managed_potfolio(data, 0.03101121352, 0.105, max_leverage=3), data
         ),
         bt.Backtest(
-            vol_managed_potfolio_etf(data, 0.06202242704, 0.105, max_leverage=2),
+            vol_managed_potfolio_etf(data, 0.03101121352, 0.105, max_leverage=3),
             data,
         ),
         bt.Backtest(eighty_twenty(), data),
@@ -210,15 +210,25 @@ def run_backtests():
 
     res = bt.run(*tests)
     res.display()
+
+    plot_weights(res)
+    display_returns(res)
+    print_regressions(res)
+
+
+def plot_weights(res):
     plot = (
         res.backtests["vol_managed"]
         .weights.drop("vol_managed", axis=1)
         .plot(figsize=[15, 5])
     )
     plot.figure.show()
-
-    display_returns(res)
-    print_regressions(res)
+    plot = (
+        res.backtests["vol_managed_etf"]
+        .weights.drop("vol_managed_etf", axis=1)
+        .plot(figsize=[15, 5])
+    )
+    plot.figure.show()
 
 
 def display_returns(res):
