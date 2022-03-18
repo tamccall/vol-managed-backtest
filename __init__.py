@@ -99,17 +99,14 @@ def risk_return_trade_from_vix(data, c, expected_ret, max_leverage):
 def risk_return_tradeoff_from_spy(data, c,expected_ret, max_leverage=2):
     spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
 
-    # get the rolling standard deviations
-    realized_std = spy_ret.rolling(21).std() * math.sqrt(252)
+    # get the rolling standard deviations and annualize it
+    realized_var = spy_ret.rolling(21).var() * 252
 
-    # square it to come up with the variance
-    realized_var = np.power(realized_std, 2).shift(1)
-
-    return risk_return_trade(c, realized_var, expected_ret, max_leverage)
+    return risk_return_trade(c, realized_var.shift(1), expected_ret, max_leverage)
 
 
 def vol_managed_potfolio_etf(data, c, expected_ret, max_leverage=2):
-    risk_ret_trade = risk_return_trade_from_vix(data, c, expected_ret, max_leverage)
+    risk_ret_trade = risk_return_tradeoff_from_spy(data, c, expected_ret, max_leverage)
 
     # we put the rest of the allocation into some risk-free investment
     # but we don't short the bond etf
@@ -197,7 +194,7 @@ def run_backtests():
             vol_managed_potfolio(data, 0.03101121352, 0.105, max_leverage=2), data
         ),
         bt.Backtest(
-            vol_managed_potfolio_vix(data, 0.03101121352, 0.105, max_leverage=2),
+            vol_managed_potfolio_vix(data, 0.03202242704, 0.105, max_leverage=2),
             data,
         ),
         bt.Backtest(
@@ -224,7 +221,7 @@ def display_returns(res):
 
 def print_regressions(res):
     mkt_excess = res['buy_and_hold'].log_returns - two_year_daily
-    vol_managed_excess = res['vol_managed_vix'].log_returns - two_year_daily
+    vol_managed_excess = res['vol_managed'].log_returns - two_year_daily
     reg = scipy.stats.linregress(mkt_excess.dropna(), vol_managed_excess.dropna())
     print("\nBuy and hold regression:")
     print(reg)
