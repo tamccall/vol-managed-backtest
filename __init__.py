@@ -48,8 +48,9 @@ def vol_managed_potfolio_vix(data, c, expected_ret, max_leverage=2):
     )
 
 
-
-def vol_managed_potfolio(data, c, expected_ret, max_leverage=2, strategy_name="vol_managed"):
+def vol_managed_potfolio(
+    data, c, expected_ret, max_leverage=2, strategy_name="vol_managed"
+):
     # in your paper you mention the optimal weight being proportional to the risk return trade off
     # this attempts to capture that.
     risk_ret_trade = risk_return_tradeoff_from_spy(data, c, expected_ret, max_leverage)
@@ -73,6 +74,7 @@ def vol_managed_potfolio(data, c, expected_ret, max_leverage=2, strategy_name="v
         ],
     )
 
+
 def risk_return_trade(c, ex_var, expected_ret, max_leverage):
     excess_ret = expected_ret - two_year
     # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
@@ -90,14 +92,14 @@ def risk_return_trade(c, ex_var, expected_ret, max_leverage):
 
 def risk_return_trade_from_vix(data, c, expected_ret, max_leverage):
     # convert the vix into a variation
-    ex_stdev = data.vix / 100 # convert the vix into an annulized std
-    ex_var = np.power(ex_stdev, 2) # square it to get the variation
-    yest_vix = ex_var.shift(1) # make sure we are working with yesterday's vix
+    ex_stdev = data.vix / 100  # convert the vix into an annulized std
+    ex_var = np.power(ex_stdev, 2)  # square it to get the variation
+    yest_vix = ex_var.shift(1)  # make sure we are working with yesterday's vix
 
     return risk_return_trade(c, yest_vix, expected_ret, max_leverage)
 
 
-def risk_return_tradeoff_from_spy(data, c,expected_ret, max_leverage=2):
+def risk_return_tradeoff_from_spy(data, c, expected_ret, max_leverage=2):
     spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
 
     # get the rolling standard deviations and annualize it
@@ -180,7 +182,10 @@ def get_c():
 
     var = np.power(mkt_rf.rolling(21).std() * math.sqrt(252), 2)
     smkt = mkt_rf / var.shift(1)
-    return math.sqrt(mkt_rf.var() / smkt.var()) # gets us a c that will ensure the same variance
+    return math.sqrt(
+        mkt_rf.var() / smkt.var()
+    )  # gets us a c that will ensure the same variance
+
 
 def med_vix_c():
     med_vix = data.vix.median() / 100
@@ -188,6 +193,7 @@ def med_vix_c():
 
     # corresponds to an 80:20 allocation on average
     return vix_var
+
 
 def run_backtests():
     tests = [
@@ -204,7 +210,11 @@ def run_backtests():
 
     res = bt.run(*tests)
     res.display()
-    plot = res.backtests['vol_managed'].weights.drop("vol_managed", axis=1).plot(figsize=[15, 5])
+    plot = (
+        res.backtests["vol_managed"]
+        .weights.drop("vol_managed", axis=1)
+        .plot(figsize=[15, 5])
+    )
     plot.figure.show()
 
     display_returns(res)
@@ -217,13 +227,13 @@ def display_returns(res):
 
 
 def print_regressions(res):
-    mkt_excess = res['buy_and_hold'].log_returns - two_year_daily
-    vol_managed_excess = res['vol_managed'].log_returns - two_year_daily
+    mkt_excess = res["buy_and_hold"].log_returns - two_year_daily
+    vol_managed_excess = res["vol_managed"].log_returns - two_year_daily
     reg = scipy.stats.linregress(mkt_excess.dropna(), vol_managed_excess.dropna())
     print("\nBuy and hold regression:")
     print(reg)
     print("\nVol managed ETF regression:")
-    etf_excess = res['vol_managed_etf'].log_returns - two_year_daily
+    etf_excess = res["vol_managed_etf"].log_returns - two_year_daily
     reg = scipy.stats.linregress(vol_managed_excess.dropna(), etf_excess.dropna())
     print(reg)
     print("\nVol managed ETF regression (mkt):")
@@ -237,11 +247,11 @@ def backtest_for_c_l(arr):
 
     res = bt.run(
         bt.Backtest(vol_managed_potfolio(s, c, 0.1, max_leverage=2), s),
-        bt.Backtest(buy_and_hold(), s)
+        bt.Backtest(buy_and_hold(), s),
     )
 
-    excess_bh = (res['buy_and_hold'].log_returns - two_year_daily).dropna()
-    excess_vol = (res['vol_managed'].log_returns - two_year_daily).dropna()
+    excess_bh = (res["buy_and_hold"].log_returns - two_year_daily).dropna()
+    excess_vol = (res["vol_managed"].log_returns - two_year_daily).dropna()
     reg = scipy.stats.linregress(excess_bh, excess_vol)
     return -1 * reg.intercept
 
@@ -255,5 +265,6 @@ def optimize_c():
     )
 
     print(res)
+
 
 run_backtests()
