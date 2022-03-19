@@ -1,19 +1,21 @@
 import datetime
-
+from dateutil.relativedelta import relativedelta
 import ffn
 import numpy as np
 
 from backtest import risk_return_trade
 
-rf = 1.31 / 100
-max_leverage = 3
+C = 0.03380993
+RF = 1.31 / 100
+MAX_LEVERAGE = 3
 
 today = datetime.datetime.today()
-one_month_ago = today.replace(month=today.month - 1)
-prices = ffn.get('spy', start=one_month_ago)
+one_month_ago = today - relativedelta(month=1)
+yesterday = today - relativedelta(day=1)
+prices = ffn.get('spy', start=one_month_ago, end=yesterday)
 
 log_ret = np.diff(np.log(prices.spy))
-l = risk_return_trade(0.03380993, log_ret.var() * 252, 0.105, max_leverage, rf)
+l = risk_return_trade(C, log_ret.var() * 252, 0.105, MAX_LEVERAGE, RF)
 risk_free_weight = np.maximum(1 - l, 0)
 sso_weight = np.maximum((l - 1) / 2, 0)
 spy_weight = 1 - sso_weight - risk_free_weight
