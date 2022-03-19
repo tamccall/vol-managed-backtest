@@ -14,9 +14,12 @@ class TSDWeights(bt.algos.Algo):
         for k, v in self.weights.items():
             try:
                 weight = v.at[date]
-                tmp_weight[k] = weight if not math.isnan(weight) else 0
+                if math.isnan(weight):
+                    return False
+                else:
+                    tmp_weight[k] = weight
             except KeyError:
-                tmp_weight[k] = 0
+                return False
 
         target.temp["weights"] = tmp_weight
         return True
