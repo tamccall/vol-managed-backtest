@@ -100,7 +100,7 @@ def risk_return_trade_from_vix(data, c, expected_ret, max_leverage):
 
 
 def risk_return_tradeoff_from_spy(data, c, expected_ret, max_leverage=2):
-    spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
+    spy_ret = np.log(1 + data.spy.pct_change())
 
     # get the rolling standard deviations and annualize it
     realized_var = spy_ret.rolling(21).var() * 252

@@ -14,7 +14,7 @@ one_month_ago = today - relativedelta(month=1)
 yesterday = today - relativedelta(day=1)
 prices = ffn.get('spy', start=one_month_ago, end=yesterday)
 
-log_ret = np.diff(np.log(prices.spy))
+log_ret = np.log(1 + prices.spy.pct_change())
 l = risk_return_trade(C, log_ret.var() * 252, 0.105, MAX_LEVERAGE, RF)
 risk_free_weight = np.maximum(1 - l, 0)
 sso_weight = np.maximum((l - 1) / 2, 0)
