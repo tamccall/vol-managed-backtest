@@ -86,7 +86,7 @@ def risk_return_trade(c, ex_var, expected_ret, max_leverage, rf):
     cond_ret = f + rf
 
     # put some bounds on it to constrain the leverage
-    lev = cond_ret / expected_ret
+    lev = cond_ret /  ex_var
     risk_ret_trade = np.minimum(lev, max_leverage)
     # but don't short it
     risk_ret_trade = np.maximum(risk_ret_trade, 0)
