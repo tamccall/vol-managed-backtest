@@ -130,7 +130,7 @@ def vol_managed_potfolio_etf(data, c, expected_ret, max_leverage=2):
         [
             bt.algos.SelectThese(["spy", "vgsh", "upro"]),
             bt.algos.RunAfterDays(42),
-            bt.algos.RunWeekly(),
+            bt.algos.RunMonthly(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
