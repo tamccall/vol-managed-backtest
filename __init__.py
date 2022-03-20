@@ -10,8 +10,8 @@ RF = 1.31 / 100
 MAX_LEVERAGE = 3
 
 today = datetime.datetime.today()
-one_month_ago = today - relativedelta(month=1)
-yesterday = today - relativedelta(day=1)
+one_month_ago = today - relativedelta(months=1)
+yesterday = today - relativedelta(days=1)
 prices = ffn.get('spy', start=one_month_ago, end=yesterday)
 
 log_ret = np.log(1 + prices.spy.pct_change())
