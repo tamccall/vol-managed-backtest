@@ -81,7 +81,7 @@ def vol_managed_potfolio(
 def risk_return_trade(c, ex_var, expected_ret, max_leverage, rf):
     excess_ret = expected_ret - rf
     # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
-    f = c / ex_var * excess_ret
+    f = (c / ex_var) * excess_ret
     # get the conditional expected return
     cond_ret = f + rf
 
