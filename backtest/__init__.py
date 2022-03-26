@@ -71,7 +71,7 @@ def vol_managed_potfolio(
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
             bt.algos.RunAfterDays(42),
-            bt.algos.RunMonthly(),
+            bt.algos.RunWeekly(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
@@ -82,11 +82,8 @@ def risk_return_trade(c, ex_var, expected_ret, max_leverage, rf):
     excess_ret = expected_ret - rf
     # formula from https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.12513
     f = (c / ex_var) * excess_ret
-    # get the conditional expected return
-    cond_ret = f + rf
-
     # put some bounds on it to constrain the leverage
-    lev = cond_ret /  ex_var
+    lev = f / ex_var
     risk_ret_trade = np.minimum(lev, max_leverage)
     # but don't short it
     risk_ret_trade = np.maximum(risk_ret_trade, 0)
@@ -103,12 +100,14 @@ def risk_return_trade_from_vix(data, c, expected_ret, max_leverage):
 
 
 def risk_return_tradeoff_from_spy(data, c, expected_ret, max_leverage=2):
-    spy_ret = np.log(1 + data.spy.pct_change())
+    spy_ret = np.log(data.spy / data.spy.shift(1))
 
     # get the rolling standard deviations and annualize it
     realized_var = spy_ret.rolling(21).var() * 252
 
-    return risk_return_trade(c, realized_var.shift(1), expected_ret, max_leverage, two_year)
+    return risk_return_trade(
+        c, realized_var.shift(1), expected_ret, max_leverage, two_year
+    )
 
 
 def vol_managed_potfolio_etf(data, c, expected_ret, max_leverage=2):
@@ -201,10 +200,10 @@ def med_vix_c():
 def run_backtests():
     tests = [
         bt.Backtest(
-            vol_managed_potfolio(data, 0.03380993, 0.105, max_leverage=3), data
+            vol_managed_potfolio(data, 0.03101121352, 0.105, max_leverage=3), data
         ),
         bt.Backtest(
-            vol_managed_potfolio_etf(data, 0.03380993, 0.105, max_leverage=3),
+            vol_managed_potfolio_etf(data, 0.03101121352, 0.105, max_leverage=3),
             data,
         ),
         bt.Backtest(eighty_twenty(), data),
@@ -223,19 +222,19 @@ def plot_weights(res):
     plot = (
         res.backtests["vol_managed"]
         .weights.drop("vol_managed", axis=1)
-        .plot(figsize=[15, 5])
+        .plot(figsize=(10, 7))
     )
     plot.figure.show()
     plot = (
         res.backtests["vol_managed_etf"]
         .weights.drop("vol_managed_etf", axis=1)
-        .plot(figsize=[15, 5])
+        .plot(figsize=(10, 7))
     )
     plot.figure.show()
 
 
 def display_returns(res):
-    plot = res.plot()
+    plot = res.plot(figsize=(10, 7))
     plot.figure.show()
 
 

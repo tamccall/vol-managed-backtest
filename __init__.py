@@ -5,16 +5,16 @@ import numpy as np
 
 from backtest import risk_return_trade
 
-C = 0.03380993
-RF = 1.31 / 100
+C = 0.02576024679
+RF = 2.247 / 100
 MAX_LEVERAGE = 3
 
 today = datetime.datetime.today()
 one_month_ago = today - relativedelta(months=1)
 yesterday = today - relativedelta(days=1)
-prices = ffn.get('spy', start=one_month_ago, end=yesterday)
+prices = ffn.get("spy", start=one_month_ago, end=yesterday)
 
-log_ret = np.log(1 + prices.spy.pct_change())
+log_ret = np.log(prices.spy / prices.spy.shift(1))
 l = risk_return_trade(C, log_ret.var() * 252, 0.105, MAX_LEVERAGE, RF)
 risk_free_weight = np.maximum(1 - l, 0)
 sso_weight = np.maximum((l - 1) / 2, 0)
