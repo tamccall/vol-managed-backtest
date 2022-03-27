@@ -71,7 +71,7 @@ def vol_managed_potfolio(
         [
             bt.algos.SelectThese(["spy", "vgsh"]),
             bt.algos.RunAfterDays(42),
-            bt.algos.RunWeekly(),
+            bt.algos.RunMonthly(),
             TSDWeights(**weights),
             bt.algos.Rebalance(),
         ],
