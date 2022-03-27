@@ -179,14 +179,14 @@ data = bt.get("^vix, spy, vgsh, upro", start="2000-04-17", end="2022-03-11")
 
 # code from https://twitter.com/alan_econ/status/1502372674009538564?s=20&t=McRHU8l5Cpbtg-MHa8BoZQ
 def get_c():
-    spy_ret = pd.Series(np.diff(np.log(data.spy)), index=data.spy.index[1:])
+    spy_ret = np.log(data.spy / data.spy.shift(1))
     mkt_rf = spy_ret - two_year_daily
 
-    var = np.power(mkt_rf.rolling(21).std() * math.sqrt(252), 2)
+    var = np.power(mkt_rf.rolling(21).std(), 2)
     smkt = mkt_rf / var.shift(1)
     return math.sqrt(
         mkt_rf.var() / smkt.var()
-    )  # gets us a c that will ensure the same variance
+    ) * 252
 
 
 def med_vix_c():
