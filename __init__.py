@@ -5,7 +5,7 @@ import numpy as np
 
 from backtest import risk_return_trade
 
-C = 0.02576024679
+C = 0.03101121352
 RF = 2.247 / 100
 MAX_LEVERAGE = 3
 
